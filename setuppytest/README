@@ -1,0 +1,7 @@
+SETUPPYTEST
+===========
+
+This is a test PyPI distribution to identify the minimum that is required of a
+setup.py in order to make it compatible with pip/PyPI. The intent is to
+demonstrate how to implement a setup.py that does not use
+distutils/setuptools.

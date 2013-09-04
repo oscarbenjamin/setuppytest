@@ -1,0 +1,4 @@
+distutils_example
+=================
+
+An example Python distribution that uses distutils in its setup.py.
