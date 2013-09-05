@@ -62,8 +62,8 @@ create a PEP-427 wheel file under the directory `$WHEEL_HOUSE` with a filename
 like `setuppytest-0.1-py27-none-any-none-any.whl`. The resulting wheel file
 can then be installed with `pip install $WHEEL_NAME`.
 
-testing setuppytest
--------------------
+testing 'pip install X'
+-----------------------
 
 Test if setuppytest is installed yet:
 
@@ -117,6 +117,9 @@ Test uninstallation
     $ pip list | grep setuppytest
     $ python -m setuppytest
     q:\tools\Python27\python.exe: No module named setuppytest
+
+testing 'pip wheel X'
+---------------------
 
 Build a wheel
 
