@@ -31,7 +31,8 @@ The `egg_info` commmand creates a `.egg-info` directory inside
 The `egg_info` command is called by pip before installation. Presumably the
 important part is the `dependency_links.txt` file that would be used to
 discover if this distribution depends on any other distributions. `pip` would
-want to install the othe
+want to install the other distributions before running the `install` command.
+In this minimal example there are no dependencies so this is an empty file.
 
 install
 -------
@@ -49,3 +50,59 @@ also needs to create/copy the `.egg-info` directory into site-packages.  A
 list of all the installed files including those in the `.egg-info` directory
 is written to `$RECORD_FILE`. When installing into a virtualenv the
 `--install-headers` option is passed to the `install` command.
+
+testing setuppytest
+-------------------
+
+Test if setuppytest is installed yet:
+
+    $ pip list | grep setuppytest
+    $ python -m setuppytest
+    q:\tools\Python27\python.exe: No module named setuppytest
+
+Checkout and build the sdist:
+
+    $ git clone https://github.com/oscarbenjamin/setuppytest
+    Cloning into setuppytest...
+    remote: Counting objects: 24, done.
+    remote: Compressing objects: 100% (18/18), done.
+    remote: Total 24 (delta 5), reused 23 (delta 4)
+    Unpacking objects: 100% (24/24), done.
+    $ cd setuppytest/setuppytest/
+    $ python setup.py sdist
+    running sdist
+    $ ls dist
+    setuppytest-0.1.tar.gz
+
+Install from the sdist and test
+
+    $ pip install dist/setuppytest-0.1.tar.gz
+    Unpacking .\dist\setuppytest-0.1.tar.gz
+      Running setup.py egg_info for package from file:///q%7C%5Ccurrent%5Ctmp%5Ctpip%5Csetuppytest%5Csetuppytest%5Cdist%5Csetuppytest-0.1.tar.gz
+    Installing collected packages: setuppytest
+      Running setup.py install for setuppytest
+    Successfully installed setuppytest
+    Cleaning up...
+
+Test the installation
+
+    $ pip list | grep setuppytest
+    setuppytest (0.1)
+    $ cd ..  # Don't import setuppytest.py from cwd
+    $ python -m setuppytest
+    setuppytest.py
+    getcwd(): "q:\current\tmp\tpip\setuppytest"
+    __file__: "q:\tools\Python27\lib\site-packages\setuppytest.py"
+    __name__: "__main__"
+
+Test uninstallation
+
+    $ pip uninstall setuppytest
+    Uninstalling setuppytest:
+      q:\tools\python27\lib\site-packages\setuppytest-0.1-py2.7.egg-info
+      q:\tools\python27\lib\site-packages\setuppytest.py
+    Proceed (y/n)? y
+      Successfully uninstalled setuppytest
+    $ pip list | grep setuppytest
+    $ python -m setuppytest
+    q:\tools\Python27\python.exe: No module named setuppytest
