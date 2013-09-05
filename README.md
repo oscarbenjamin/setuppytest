@@ -51,6 +51,17 @@ list of all the installed files including those in the `.egg-info` directory
 is written to `$RECORD_FILE`. When installing into a virtualenv the
 `--install-headers` option is passed to the `install` command.
 
+bdist-wheel
+-----------
+
+    $ python setup.py bdist_wheel -d $WHEEL_HOUSE
+
+When using `pip wheel X` pip will obtain the `sdist` unpack it, run `egg_info`
+and then run `bdist_wheel` with the line above. The `setup.py` script should
+create a PEP-427 wheel file under the directory `$WHEEL_HOUSE` with a filename
+like `setuppytest-0.1-py27-none-any-none-any.whl`. The resulting wheel file
+can then be installed with `pip install $WHEEL_NAME`.
+
 testing setuppytest
 -------------------
 
@@ -104,5 +115,51 @@ Test uninstallation
     Proceed (y/n)? y
       Successfully uninstalled setuppytest
     $ pip list | grep setuppytest
+    $ python -m setuppytest
+    q:\tools\Python27\python.exe: No module named setuppytest
+
+Build a wheel
+
+    $ cd setuppytest  # Back to the VCS root
+    $ pip wheel dist/setuppytest-0.1.tar.gz
+    Unpacking .\dist\setuppytest-0.1.tar.gz
+      Running setup.py egg_info for package from file:///q%7C%5Ccurrent%5Csrc%5Csetuppytest%5Csetuppytest%5Cdist%5Csetuppytest-0.1.tar.gz
+    Building wheels for collected packages: setuppytest
+      Running setup.py bdist_wheel for setuppytest
+      Destination directory: q:\current\src\setuppytest\setuppytest\wheelhouse
+    Successfully built setuppytest
+    Cleaning up...
+    $ pip install wheelhouse/setuppytest-0.1-py27-none-any-none-any.whl
+    Unpacking .\wheelhouse\setuppytest-0.1-py27-none-any-none-any.whl
+    Installing collected packages: setuppytest
+    Successfully installed setuppytest
+    Cleaning up...
+
+Test the wheel
+
+    $ pip list | grep setuppytest
+    setuppytest (0.1)
+    $ cd ..
+    $ python -m setuppytest
+    setuppytest.py
+    getcwd(): "q:\current\src\setuppytest"
+    __file__: "q:\tools\Python27\lib\site-packages\setuppytest.py"
+    __name__: "__main__"
+
+And uninstall again
+
+    $ pip uninstall setuppytest
+    Uninstalling setuppytest:
+      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\description.rst
+      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\metadata
+      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\pydist.json
+      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\record
+      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\top_level.txt
+      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\wheel
+      q:\tools\python27\lib\site-packages\setuppytest.py
+    Proceed (y/n)? y
+      Successfully uninstalled setuppytest
+    $ pip list | grep setuppytest
+    $ cd ..
     $ python -m setuppytest
     q:\tools\Python27\python.exe: No module named setuppytest
