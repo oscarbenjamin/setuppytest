@@ -59,6 +59,8 @@ PYVERSION = sys.version_info[:2]
 SDIST_NAME = '%s-%s' % (NAME, VERSION)
 # The name of the directory where .egg-info is installed in site-packages.
 EGG_INFO_NAME = '%s-%s-py%s.%s.egg-info' % ((NAME, VERSION) + PYVERSION)
+EGG_NAME = '%s-%s-py%s.%s.egg' % ((NAME, VERSION) + PYVERSION)
+
 # The name of the generated wheel file:
 # http://www.python.org/dev/peps/pep-0427/
 WHEEL_TAG = 'py%s%s-none-any' % PYVERSION
@@ -103,11 +105,21 @@ MANIFEST = MODULES_PY + MANIFEST_IN
 # :::::::::::::::::
 
 def main(*args):
-    if not args or args[0] not in COMMANDS:
+    if not args:
         print(repr(args))
         return -1
+    # find the first non-option argument
+    for n, a in enumerate(args):
+        if not a.startswith('-'):
+            break
+    else:
+        print(repr(args))
+        return -1
+
     # Delegate to the appropriate subcommand
-    return COMMANDS[args[0]](*args[1:])
+    command = args[n]
+    args = args[:n] + args[n+1:]
+    return COMMANDS[command](*args)
 
 def sdist():
     # Just like distutils...
@@ -128,8 +140,6 @@ def sdist():
         info.mtime = time.time()
         archive.addfile(info, StringIO(METADATA2))
 
-    return 0
-
 def egg_info(*args):
     print('running egg_info')
 
@@ -140,8 +150,6 @@ def egg_info(*args):
     egg_dir = join(egg_base, NAME + '.egg-info')
 
     _egg_info(egg_dir)
-
-    return 0
 
 def install(*args):
     print('running install')
@@ -251,7 +259,25 @@ def bdist_wheel(*args):
     # Create the zipfile in-place
     with zipfile.ZipFile(join(wheelhouse, WHEEL_NAME), 'w') as wheel:
         for path in files_installed:
-            wheel.write(os.path.join(builddir, path), path)
+            wheel.write(join(builddir, path), path)
+
+def bdist_egg(*args):
+    # Accept only these exact invocations until otherwise required.
+    assert len(args) == 3
+    dist_dir = args[2]
+    assert args == ('-q', '--dist-dir', dist_dir)
+    # (Actually '-q' comes before 'bdist_egg' but main() rearranges the order
+    # of the arguments.)
+
+    # Build here and then write to the zip-file at the end
+    eggdir = tempfile.mkdtemp()
+    _egg_info(eggdir)
+
+    with zipfile.ZipFile(join(dist_dir, EGG_NAME), 'w') as egg:
+        for m in MODULES_PY:
+            egg.write(m)
+        for p in os.listdir(eggdir):
+            egg.write(join(eggdir, p), join('EGG-INFO', p))
 
 
 COMMANDS = {
@@ -259,6 +285,7 @@ COMMANDS = {
     'egg_info': egg_info,
     'install': install,
     'bdist_wheel': bdist_wheel,
+    'bdist_egg': bdist_egg,
 }
 
 # :::::::::::::::::

@@ -62,6 +62,15 @@ create a PEP-427 wheel file under the directory `$WHEEL_HOUSE` with a filename
 like `setuppytest-0.1-py27-none-any-none-any.whl`. The resulting wheel file
 can then be installed with `pip install $WHEEL_NAME`.
 
+bdist-egg
+---------
+
+    $ python setup.py -q bdist_egg --dist-dir $DIST_DIR
+
+When using `'easy_install x'` the sdist will be extracted and the line above
+is run. The `setup.py` script should create a `.egg` archive inside the
+`$DIST_DIR` directory.
+
 testing 'pip install X'
 -----------------------
 
@@ -164,5 +173,41 @@ And uninstall again
       Successfully uninstalled setuppytest
     $ pip list | grep setuppytest
     $ cd ..
+    $ python -m setuppytest
+    q:\tools\Python27\python.exe: No module named setuppytest
+
+testing easy-install X
+----------------------
+
+Install
+
+    $ easy_install dist/setuppytest-0.1.tar.gz
+    Processing setuppytest-0.1.tar.gz
+    Writing c:\docume~1\enojb\locals~1\temp\easy_install-70dzos\setuppytest-0.1\setup.cfg
+    Running setuppytest-0.1\setup.py -q bdist_egg --dist-dir c:\docume~1\enojb\locals~1\temp\easy_install-70dzos\setuppytest-0.1\egg-dist-tmp-cuvaab
+    creating q:\tools\python27\lib\site-packages\setuppytest-0.1-py2.7.egg
+    Extracting setuppytest-0.1-py2.7.egg to q:\tools\python27\lib\site-packages
+    Adding setuppytest 0.1 to easy-install.pth file
+
+    Installed q:\tools\python27\lib\site-packages\setuppytest-0.1-py2.7.egg
+    Processing dependencies for setuppytest==0.1
+    Finished processing dependencies for setuppytest==0.1
+
+Test
+
+    $ cd ..
+    $ python -m setuppytest
+    setuppytest.py
+    getcwd(): "q:\current\src\setuppytest"
+    __file__: "q:\tools\Python27\lib\site-packages\setuppytest-0.1-py2.7.egg\setuppytest.py"
+    __name__: "__main__"
+
+Uninstall again.
+
+    $ pip uninstall setuppytest
+    Uninstalling setuppytest:
+      q:\tools\python27\lib\site-packages\setuppytest-0.1-py2.7.egg
+    Proceed (y/n)? y
+      Successfully uninstalled setuppytest
     $ python -m setuppytest
     q:\tools\Python27\python.exe: No module named setuppytest
