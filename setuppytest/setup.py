@@ -2,7 +2,8 @@
 
 from __future__ import print_function
 
-import os, os.path
+import os
+from os.path import exists, split, join
 import sys
 import tarfile
 import time
@@ -11,9 +12,10 @@ import shutil
 import tempfile
 from StringIO import StringIO
 
-# Used a lot
-join = os.path.join
 
+# :::::::::::::::::
+#   Distribution data
+# :::::::::::::::::
 
 # Metadata to go in PKG-INFO
 NAME = 'setuppytest'
@@ -43,22 +45,22 @@ MANIFEST = (
     'README',
 )
 
+# :::::::::::::::::
+#   Commands
+# :::::::::::::::::
+
 def main(*args):
-    if args[0] == 'sdist':
-        return sdist(*args[1:])
-    elif args[0] == 'egg_info':
-        return egg_info(*args[1:])
-    elif args[0] == 'install':
-        return install(*args[1:])
-    else:
+    if not args or args[0] not in COMMANDS:
         print(args)
         return -1
+    # Delegate to the appropriate subcommand
+    return COMMANDS[args[0]](*args[1:])
 
 def sdist():
     # Just like distutils...
     print('running sdist')
 
-    if not os.path.exists('dist'):
+    if not exists('dist'):
         os.mkdir('dist')
 
     archivepath = join('dist', SDIST_NAME + '.tar.gz')
@@ -88,33 +90,6 @@ def egg_info(*args):
 
     return 0
 
-def _egg_info(egg_dir):
-
-    sources = (
-        'PKG-INFO',
-        'SOURCES.txt',
-        'dependency_links.txt',
-        'top_level.txt',
-    )
-
-    sourcespaths = tuple(join(egg_dir, s) for s in sources)
-
-    if not os.path.exists(egg_dir):
-        os.mkdir(egg_dir)
-
-    with open(join(egg_dir, 'PKG-INFO'), 'w') as pkginfo:
-        pkginfo.write(PKG_INFO)
-
-    with open(join(egg_dir, 'SOURCES.txt'), 'w') as sources:
-        sources.write('\n'.join(MANIFEST + sourcespaths))
-
-    with open(join(egg_dir, 'dependency_links.txt'), 'w') as dep:
-        dep.write('\n')
-
-    with open(join(egg_dir, 'top_level.txt'), 'w') as top_level:
-        top_level.write('setuppytest\n')
-
-
 def install(*args):
     print('running install')
 
@@ -130,45 +105,100 @@ def install(*args):
         headers = rest[1]
         assert rest == ('--install-headers', headers)
 
-    # Okay we now need to know where to put the files.
+    # We need to know where to put the files.
+    # FIXME -- won't work for --user
     site_packages = get_python_lib()
 
+    # Keep track of all files created for the record file
     files_installed = []
-
-    def copy(srcpath, dstname):
-        # Find the new destination
-        dstpath = join(site_packages, dstname)
-        # Create the folder if necessary and remember all created folders
-        dstdirtop = os.path.split(dstpath)[0]
-        if not os.path.exists(dstdirtop):
-            created = []
-            dstdir = dstdirtop
-            while not os.path.exists(dstdir):
-                created.append(dstdir)
-                dstdir = os.path.split(dstdir)[0]
-            os.makedirs(dstdirtop)
-            files_installed.extend(reversed(created))
-        # Actually copy the file
-        shutil.copyfile(srcpath, dstpath)
-        files_installed.append(dstpath)
 
     # Create the .egg-info directory
     egg_dir = tempfile.mkdtemp()
+
+    # Populate temporary directory with egg-info data
     _egg_info(egg_dir)
 
     # What do we call the new .egg-info directory?
     new_egg_dir = '%s-%s-%s.egg-info' % (NAME, VERSION, 'py2.7')
+    new_egg_path = join(site_packages, new_egg_dir)
 
     # Copy .py files to site-packages
-    copy('setuppytest.py', 'setuppytest.py')
+    _copy('setuppytest.py', join(site_packages, 'setuppytest.py'), files_installed)
 
     # Copy files to the new egg directory
     for fname in os.listdir(egg_dir):
-        copy(join(egg_dir, fname), join(new_egg_dir, fname))
+        src = join(egg_dir, fname)
+        dst = join(new_egg_path, fname)
+        _copy(src, dst, files_installed)
 
     # Write installed files to the record file
     with open(recordfile, 'w') as record:
         record.write('\n'.join(files_installed))
 
+def bdist_wheel(*args):
+    pass
+
+COMMANDS = {
+    'sdist': sdist,
+    'egg_info': egg_info,
+    'install': install,
+    'bdist_wheel': bdist_wheel,
+}
+
+# :::::::::::::::::
+#   Utilities
+# :::::::::::::::::
+
+def _egg_info(egg_dir):
+    '''Populate directory egg_dir with egg-style metadata.'''
+
+    sources = (
+        'PKG-INFO',
+        'SOURCES.txt',
+        'dependency_links.txt',
+        'top_level.txt',
+    )
+
+    sourcespaths = tuple(join(egg_dir, s) for s in sources)
+
+    if not exists(egg_dir):
+        os.mkdir(egg_dir)
+
+    with open(join(egg_dir, 'PKG-INFO'), 'w') as pkginfo:
+        pkginfo.write(PKG_INFO)
+
+    with open(join(egg_dir, 'SOURCES.txt'), 'w') as sources:
+        sources.write('\n'.join(MANIFEST + sourcespaths))
+
+    with open(join(egg_dir, 'dependency_links.txt'), 'w') as dep:
+        dep.write('\n')
+
+    with open(join(egg_dir, 'top_level.txt'), 'w') as top_level:
+        top_level.write('setuppytest\n')
+
+
+def _copy(srcpath, dstpath, files_installed):
+    '''Copy file from srcpath to dstpath.
+
+    Parent directories of dstpath are created if necessary.
+    Created directories and the installed file are appended to
+    files_installed.
+    '''
+    dstdirtop = split(dstpath)[0]
+    if not exists(dstdirtop):
+        created = []
+        dstdir = dstdirtop
+        while not exists(dstdir):
+            assert dstdir, 'no such directory: %r' % srcpath
+            created.append(dstdir)
+            dstdir = split(dstdir)[0]
+        os.makedirs(dstdirtop)
+        files_installed.extend(reversed(created))
+    # Actually copy the file
+    shutil.copyfile(srcpath, dstpath)
+    files_installed.append(dstpath)
+
+
 # Be sure to pass on exit code
-sys.exit(main(*sys.argv[1:]))
+if __name__ == "__main__":
+    sys.exit(main(*sys.argv[1:]))
