@@ -170,8 +170,5 @@ def install(*args):
     with open(recordfile, 'w') as record:
         record.write('\n'.join(files_installed))
 
-    with open('q:\\record.txt', 'w') as record:
-        record.write('\n'.join(files_installed))
-
 # Be sure to pass on exit code
 sys.exit(main(*sys.argv[1:]))
