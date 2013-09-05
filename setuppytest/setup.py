@@ -6,10 +6,13 @@ import os
 from os.path import exists, split, join
 import sys
 import tarfile
+import zipfile
 import time
 from distutils.sysconfig import get_python_lib
 import shutil
 import tempfile
+import json
+import hashlib
 from StringIO import StringIO
 
 
@@ -20,30 +23,80 @@ from StringIO import StringIO
 # Metadata to go in PKG-INFO
 NAME = 'setuppytest'
 VERSION = '0.1'
+URL = 'https://github.com/oscarbenjamin/setuppytest'
+AUTHOR = 'Oscar Benjamin'
+EMAIL = 'oscar.j.benjamin@gmail.com'
 
 # The content of the PKG-INFO file.
-PKG_INFO = '''\
-Metadata-Version: 1.0
+METADATA2 = '''\
+Metadata-Version: 2.0
 Name: %(Name)s
 Version: %(Version)s
 Summary: UNKNOWN
-Home-page: http://example.com
-Author: John Cleese
-Author-email: john.cleese@example.com
+Home-page: %(Home-page)s
+Author: %(Author)s
+Author-email: %(Author-email)s
 License: UNKNOWN
 Description: UNKNOWN
 Platform: UNKNOWN\
-''' % {'Name': NAME, 'Version': VERSION}
 
+UNKOWN
+
+
+''' % {
+    'Name': NAME,
+    'Version': VERSION,
+    'Home-page': URL,
+    'Author': AUTHOR,
+    'Author-email': EMAIL,
+}
+
+METADATA_VERSION = "2.0"
+
+# Naming conventions
+PYVERSION = sys.version_info[:2]
+# The name of any generated sdist archive.
 SDIST_NAME = '%s-%s' % (NAME, VERSION)
+# The name of the directory where .egg-info is installed in site-packages.
+EGG_INFO_NAME = '%s-%s-py%s.%s.egg-info' % ((NAME, VERSION) + PYVERSION)
+# The name of the generated wheel file:
+# http://www.python.org/dev/peps/pep-0427/
+WHEEL_TAG = 'py%s%s-none-any' % PYVERSION
+WHEEL_NAME = '%s-%s-%s-none-any.whl' % (NAME, VERSION, WHEEL_TAG)
+WHEEL_GENERATOR = 'setuppytest (%s)' % VERSION
+WHEEL_META = '''\
+Wheel-Version: 1.0
+Generator: %s
+Root-Is-Purelib: true
+Tag: %s
 
+''' % (WHEEL_GENERATOR, WHEEL_TAG)
+
+# for the pydist.json file in a generated wheel.
+PYDIST_JSON = {
+    "document_names": {"description": "DESCRIPTION.rst"},
+    "name": NAME,
+    "metadata_version": METADATA_VERSION,
+    "contacts": [{"role": "author", "email": EMAIL, "name": AUTHOR}],
+    "generator": WHEEL_GENERATOR,
+    "summary": "UNKNOWN",
+    "project_urls": {"Home": URL},
+    "version": VERSION,
+}
+
+# Top-level modules
+MODULES = (
+    'setuppytest',
+)
 # Files to be included in sdist.
 # PKG-INFO is generated automatically.
-MANIFEST = (
+MANIFEST_IN = (
     'setup.py',
-    'setuppytest.py',
     'README',
 )
+
+MODULES_PY = tuple(m + '.py' for m in MODULES)
+MANIFEST = MODULES_PY + MANIFEST_IN
 
 # :::::::::::::::::
 #   Commands
@@ -51,7 +104,7 @@ MANIFEST = (
 
 def main(*args):
     if not args or args[0] not in COMMANDS:
-        print(args)
+        print(repr(args))
         return -1
     # Delegate to the appropriate subcommand
     return COMMANDS[args[0]](*args[1:])
@@ -73,8 +126,8 @@ def sdist():
         # Create and add PKG-INFO
         info = tarfile.TarInfo(join(SDIST_NAME, 'PKG-INFO'))
         info.mtime = time.time()
-        archive.addfile(info, StringIO(PKG_INFO))
-    
+        archive.addfile(info, StringIO(METADATA2))
+
     return 0
 
 def egg_info(*args):
@@ -119,11 +172,11 @@ def install(*args):
     _egg_info(egg_dir)
 
     # What do we call the new .egg-info directory?
-    new_egg_dir = '%s-%s-%s.egg-info' % (NAME, VERSION, 'py2.7')
-    new_egg_path = join(site_packages, new_egg_dir)
+    new_egg_path = join(site_packages, EGG_INFO_NAME)
 
     # Copy .py files to site-packages
-    _copy('setuppytest.py', join(site_packages, 'setuppytest.py'), files_installed)
+    for module in MODULES_PY:
+        _copy(module, join(site_packages, module), files_installed)
 
     # Copy files to the new egg directory
     for fname in os.listdir(egg_dir):
@@ -136,7 +189,70 @@ def install(*args):
         record.write('\n'.join(files_installed))
 
 def bdist_wheel(*args):
-    pass
+    # Accept only these exact invocations until otherwise required.
+    assert len(args) == 2
+    wheelhouse = args[1]
+    assert args == ('-d', wheelhouse)
+
+    if not exists('build'):
+        os.mkdir('build')
+
+    # Temporary workspace
+    builddir = tempfile.mkdtemp()
+
+    # Keep track of all created files
+    files_installed = []
+
+    def open_app(path):
+        f = open(join(builddir, path), 'w')
+        files_installed.append(path)
+        return f
+
+    # First copy in any module files
+    for module in MODULES_PY:
+        shutil.copy(module, join(builddir, module))
+        files_installed.append(module)
+
+    # Now create the .dist-info directory
+    distinfodir = SDIST_NAME + '.dist-info'
+    os.mkdir(join(builddir, distinfodir))
+
+    with open_app(join(distinfodir, 'DESCRIPTION.rst')) as description:
+        description.write('UNKOWN\n\n\n')
+
+    with open_app(join(distinfodir, 'METADATA')) as metadata:
+        metadata.write(METADATA2)
+
+    with open_app(join(distinfodir, 'WHEEL')) as wheelmeta:
+        wheelmeta.write(WHEEL_META)
+
+    with open_app(join(distinfodir, 'pydist.json')) as pydist_json:
+        json.dump(PYDIST_JSON, pydist_json)
+
+    with open_app(join(distinfodir, 'top_level.txt')) as top_level:
+        top_level.write('\n'.join(MODULES))
+
+    # Now compute hashes and lengths for the RECORD file
+    # Needs to be last.
+    N = len(builddir)
+    recordname = join(distinfodir, 'RECORD')
+    with open_app(recordname) as record:
+        for path in files_installed:
+            if path != recordname:
+                print(path)
+                with open(join(builddir, path)) as fin:
+                    data = fin.read()
+                hash = hashlib.sha256(data)
+                length = len(data)
+            else:
+                hash = length = ''
+            record.write('%s,%s,%s\n' % (path, hash, length))
+
+    # Create the zipfile in-place
+    with zipfile.ZipFile(join(wheelhouse, WHEEL_NAME), 'w') as wheel:
+        for path in files_installed:
+            wheel.write(os.path.join(builddir, path), path)
+
 
 COMMANDS = {
     'sdist': sdist,
@@ -165,7 +281,7 @@ def _egg_info(egg_dir):
         os.mkdir(egg_dir)
 
     with open(join(egg_dir, 'PKG-INFO'), 'w') as pkginfo:
-        pkginfo.write(PKG_INFO)
+        pkginfo.write(METADATA2)
 
     with open(join(egg_dir, 'SOURCES.txt'), 'w') as sources:
         sources.write('\n'.join(MANIFEST + sourcespaths))
@@ -174,7 +290,7 @@ def _egg_info(egg_dir):
         dep.write('\n')
 
     with open(join(egg_dir, 'top_level.txt'), 'w') as top_level:
-        top_level.write('setuppytest\n')
+        top_level.write('\n'.join(MODULES))
 
 
 def _copy(srcpath, dstpath, files_installed):
