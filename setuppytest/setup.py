@@ -155,10 +155,13 @@ def install(*args):
     print('running install')
 
     # We will only accept precisely these invocations until otherwise required
-    recordfile = args[1]
     first3, rest = args[:3], args[3:]
-    assert first3 == (
-            '--record', recordfile, '--single-version-externally-managed')
+    if first3[0] == '--single-version-externally-managed':
+        recordpair = first3[1:]
+    elif first3[2] == '--single-version-externally-managed':
+        recordpair = first3[:2]
+    recordfile = recordpair[1]
+    assert recordpair == ('--record', recordfile)
 
     # For a virtualenv we may get the '--install-headers' arg
     if rest:

@@ -21,9 +21,17 @@ First we need to get into the right directory and create a virtualenv.
 
 Now go to where the setup.py is and cleanup any old build artifacts
 
+  $ if [ -d wheelhouse ]; then
+  >    rm -r wheelhouse
+  > fi
+
   $ cd "${CWD}/setuppytest"
 
-  $ if [ -d ./dist/setuppytest.0.1.tar.gz ]; then
+  $ if [ -d wheelhouse ]; then
+  >    rm -r wheelhouse
+  > fi
+
+  $ if [ -e ./dist/setuppytest.0.1.tar.gz ]; then
   >     rm dist/setuppytest.0.1.tar.gz
   > fi
 
@@ -113,11 +121,6 @@ In this minimal example there are no dependencies so this is an empty file.
 install
 -------
 
-  $ pip list
-  pip (1.4.1)
-  setuptools (0.9.8)
-  wheel (0.21.0)
-
   $ python setup.py install --record dist/record.txt    \
   >                 --single-version-externally-managed
   running install
@@ -129,12 +132,6 @@ install
   .+\\setuppytest-0.1-py2.7.egg-info\\PKG-INFO (re)
   .+\\setuppytest-0.1-py2.7.egg-info\\SOURCES.txt (re)
   .+\\setuppytest-0.1-py2.7.egg-info\\top_level.txt (re)
-
-  $ pip list
-  pip (1.4.1)
-  setuppytest (0.1)
-  setuptools (0.9.8)
-  wheel (0.21.0)
 
   $ cd ..  # Don''t import from CWD
 
@@ -163,6 +160,8 @@ is written to `$RECORD_FILE`. When installing into a virtualenv the
 
 bdist-wheel
 -----------
+
+  $ mkdir wheelhouse
 
   $ python setup.py bdist_wheel -d wheelhouse
   running bdist_wheel
@@ -197,9 +196,6 @@ Test if setuppytest is installed yet:
 
   $ cd ..
 
-  $ pip list | grep setuppytest
-  [1]
-
   $ python -m setuppytest
   .*\python.exe: No module named setuppytest (re)
   [1]
@@ -218,9 +214,6 @@ Install from the sdist and test
 
 Test the installation
 
-  $ pip list | grep setuppytest
-  setuppytest (0.1)
-
   $ cd ..  # Don''t import setuppytest.py from cwd
 
   $ python -m setuppytest
@@ -235,65 +228,16 @@ Test uninstallation
   Uninstalling setuppytest:
     Successfully uninstalled setuppytest
 
-  $ pip list | grep setuppytest
-  [1]
-
   $ python -m setuppytest
   .*\python.exe: No module named setuppytest (re)
   [1]
-
-testing 'pip wheel X'
----------------------
-
-Build a wheel
-
-  $ cd setuppytest  # Back to the VCS root
-  $ pip wheel dist/setuppytest-0.1.tar.gz
-  Unpacking .\dist\setuppytest-0.1.tar.gz
-    Running setup.py egg_info for package from file:\/\/\/.*setuppytest-0.1.tar.gz (re)
-  Building wheels for collected packages: setuppytest
-    Running setup.py bdist_wheel for setuppytest
-    Destination directory: .*\\setuppytest\\setuppytest\\wheelhouse (re)
-  Successfully built setuppytest
-  Cleaning up...
-
-Install from the wheel.
-
-  $ pip install wheelhouse/setuppytest-0.1-py27-none-any-none-any.whl
-  Unpacking .\wheelhouse\setuppytest-0.1-py27-none-any-none-any.whl
-  Installing collected packages: setuppytest
-  Successfully installed setuppytest
-  Cleaning up...
-
-Test the installation.
-
-  $ pip list | grep setuppytest
-  setuppytest (0.1)
-  $ cd ..
-  $ python -m setuppytest
-  setuppytest.py
-  getcwd\(\): ".*\\setuppytest" (re)
-  __file__: ".*\\site-packages\\setuppytest.py" (re)
-  __name__: "__main__"
-
-And uninstall again
-
-  $ pip uninstall -y setuppytest
-  Uninstalling setuppytest:
-    Successfully uninstalled setuppytest
-  $ pip list | grep setuppytest
-  [1]
-
-  $ python -m setuppytest
-  .*\python.exe: No module named setuppytest (re)
-  [1]
-
-  $ cd setuppytest
 
 testing easy-install X
 ----------------------
 
 Install
+
+  $ cd "$CWD"/setuppytest
 
   $ easy_install dist/setuppytest-0.1.tar.gz
   Processing setuppytest-0.1.tar.gz
