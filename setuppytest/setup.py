@@ -194,9 +194,10 @@ def install(*args):
 
     # Write installed files to the record file
     with open(recordfile, 'w') as record:
-        record.write('\n'.join(files_installed))
+        record.write('\n'.join(files_installed) + '\n')
 
 def bdist_wheel(*args):
+    print('running bdist_wheel')
     # Accept only these exact invocations until otherwise required.
     assert len(args) == 2
     wheelhouse = args[1]
@@ -247,7 +248,6 @@ def bdist_wheel(*args):
     with open_app(recordname) as record:
         for path in files_installed:
             if path != recordname:
-                print(path)
                 with open(join(builddir, path)) as fin:
                     data = fin.read()
                 hash = hashlib.sha256(data)
@@ -262,6 +262,7 @@ def bdist_wheel(*args):
             wheel.write(join(builddir, path), path)
 
 def bdist_egg(*args):
+    print('running bdist_egg')
     # Accept only these exact invocations until otherwise required.
     assert len(args) == 3
     dist_dir = args[2]

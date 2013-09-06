@@ -1,5 +1,5 @@
-setuppytest
-===============
+setuppytest tests
+=================
 
 Minimal setup.py implementation.
 
@@ -9,31 +9,54 @@ following invocations.
 
 First we need to get into the right directory and create a virtualenv.
 
-  $ cd "$CWD"
+  $ cd "${CWD}"
 
   $ if [ ! -d tmpvenv ]; then
   >     python -m virtualenv tmpvenv
+  >     . tmpvenv/Scripts/activate
+  >     pip install wheel
   > fi
 
   $ . tmpvenv/Scripts/activate
 
-sdist
------
+Now go to where the setup.py is and cleanup any old build artifacts
 
-  $ python setup.py sdist
+  $ cd "${CWD}/setuppytest"
 
-The sdist command just creates an sdist `.tar.gz` archive under the `dist`
-directory. This isn't directly by `pip` but we need an `sdist` before we can
-invoke pip.
-
-  $ cd setuppytest
-  $ if [ ! -d *.egg-info ]; then
-  >     rm -r *.egg-info
+  $ if [ -d ./dist/setuppytest.0.1.tar.gz ]; then
+  >     rm dist/setuppytest.0.1.tar.gz
   > fi
 
-  $ python setup.py egg_info --egg-base .
-  running egg_info
-  $ ls *.egg-info
+  $ if [ -d ./eggsdir ]; then
+  >     rm -r ./eggsdir
+  > fi
+
+  $ if [ -d ./setuppytest.egg-info ]; then
+  >     rm -r ./setuppytest.egg-info
+  > fi
+
+  $ if [ -e dist/record.txt ]; then
+  >     rm dist/record.txt
+  > fi
+
+Create the sdist
+----------------
+
+Actually create the sdist.
+
+  $ python setup.py sdist
+  running sdist
+
+Check that it was actually created.
+
+  $ ls ./dist
+  setuppytest-0.1.tar.gz
+
+  $ tar -tzf ./dist/setuppytest-0.1.tar.gz
+  setuppytest-0.1/setuppytest.py
+  setuppytest-0.1/setup.py
+  setuppytest-0.1/README
+  setuppytest-0.1[\/\\]+PKG-INFO (re)
 
 egg-info
 --------
@@ -41,11 +64,45 @@ egg-info
 The `egg_info` commmand creates a `.egg-info` directory inside
 `$EGG_DIRECTORY` and adds the following files:
 
-* `PKG-INFO` : Distribution metadata in metadata version 1.0 format.
-* `SOURCES.txt` : A list of the files in the project and in the `.egg-info`
-                  directory.
-* `dependency_links.txt` : An empty file
-* `top_level.txt` : The name of the top-level module that will be installed.
+  $ python setup.py egg_info --egg-base .
+  running egg_info
+
+  $ ls setuppytest.egg-info
+  PKG-INFO
+  SOURCES.txt
+  dependency_links.txt
+  top_level.txt
+
+  $ cat setuppytest.egg-info/PKG-INFO
+  Metadata-Version: 2.0
+  Name: setuppytest
+  Version: 0.1
+  Summary: UNKNOWN
+  Home-page: https://github.com/oscarbenjamin/setuppytest
+  Author: Oscar Benjamin
+  Author-email: oscar.j.benjamin@gmail.com
+  License: UNKNOWN
+  Description: UNKNOWN
+  Platform: UNKNOWN
+  UNKOWN
+  
+  
+
+  $ cat setuppytest.egg-info/SOURCES.txt
+  setuppytest.py
+  setup.py
+  README
+  .\setuppytest.egg-info\PKG-INFO
+  .\setuppytest.egg-info\SOURCES.txt
+  .\setuppytest.egg-info\dependency_links.txt
+  .\setuppytest.egg-info\top_level.txt (no-eol)
+
+  $ cat setuppytest.egg-info/dependency_links.txt
+  
+
+  $ cat setuppytest.egg-info/top_level.txt
+  setuppytest (no-eol)
+
 
 The `egg_info` command is called by pip before installation. Presumably the
 important part is the `dependency_links.txt` file that would be used to
@@ -56,12 +113,46 @@ In this minimal example there are no dependencies so this is an empty file.
 install
 -------
 
-    $ python setup.py install --record $RECORD_FILE         \
-                        --single-version-externally-managed
+  $ pip list
+  pip (1.4.1)
+  setuptools (0.9.8)
+  wheel (0.21.0)
 
-    $ python setup.py install --record $RECORD_FILE         \
-                        --single-version-externally-managed \
-                        --intall-headers $HEADERS_DIR
+  $ python setup.py install --record dist/record.txt    \
+  >                 --single-version-externally-managed
+  running install
+
+  $ cat dist/record.txt
+  .+\\setuppytest.py (re)
+  .+\\setuppytest-0.1-py2.7.egg-info (re)
+  .+\\setuppytest-0.1-py2.7.egg-info\\dependency_links.txt (re)
+  .+\\setuppytest-0.1-py2.7.egg-info\\PKG-INFO (re)
+  .+\\setuppytest-0.1-py2.7.egg-info\\SOURCES.txt (re)
+  .+\\setuppytest-0.1-py2.7.egg-info\\top_level.txt (re)
+
+  $ pip list
+  pip (1.4.1)
+  setuppytest (0.1)
+  setuptools (0.9.8)
+  wheel (0.21.0)
+
+  $ cd ..  # Don''t import from CWD
+
+  $ python -m setuppytest
+  setuppytest.py
+  getcwd\(\): ".*\\setuppytest" (re)
+  __file__: ".*\\site-packages\\setuppytest.py" (re)
+  __name__: "__main__"
+
+  $ pip uninstall -y setuppytest
+  Uninstalling setuppytest:
+    Successfully uninstalled setuppytest
+
+  $ python -m setuppytest
+  .*python.exe: No module named setuppytest (re)
+  [1]
+
+  $ cd setuppytest
 
 After calling `egg_info` pip will call the `install` command. This needs to
 copy/create any files in `site-packages` or anywhere else on the system. It
@@ -73,7 +164,8 @@ is written to `$RECORD_FILE`. When installing into a virtualenv the
 bdist-wheel
 -----------
 
-    $ python setup.py bdist_wheel -d $WHEEL_HOUSE
+  $ python setup.py bdist_wheel -d wheelhouse
+  running bdist_wheel
 
 When using `pip wheel X` pip will obtain the `sdist` unpack it, run `egg_info`
 and then run `bdist_wheel` with the line above. The `setup.py` script should
@@ -84,7 +176,15 @@ can then be installed with `pip install $WHEEL_NAME`.
 bdist-egg
 ---------
 
-    $ python setup.py -q bdist_egg --dist-dir $DIST_DIR
+  $ mkdir eggsdir
+
+  $ python setup.py -q bdist_egg --dist-dir eggsdir
+  running bdist_egg
+
+  $ ls eggsdir
+  setuppytest-0.1-py2.7.egg
+
+  $ rm -r eggsdir
 
 When using `'easy_install x'` the sdist will be extracted and the line above
 is run. The `setup.py` script should create a `.egg` archive inside the
@@ -95,138 +195,135 @@ testing 'pip install X'
 
 Test if setuppytest is installed yet:
 
-    $ pip list | grep setuppytest
-    $ python -m setuppytest
-    q:\tools\Python27\python.exe: No module named setuppytest
+  $ cd ..
 
-Checkout and build the sdist:
+  $ pip list | grep setuppytest
+  [1]
 
-    $ git clone https://github.com/oscarbenjamin/setuppytest
-    Cloning into setuppytest...
-    remote: Counting objects: 24, done.
-    remote: Compressing objects: 100% (18/18), done.
-    remote: Total 24 (delta 5), reused 23 (delta 4)
-    Unpacking objects: 100% (24/24), done.
-    $ cd setuppytest/setuppytest/
-    $ python setup.py sdist
-    running sdist
-    $ ls dist
-    setuppytest-0.1.tar.gz
+  $ python -m setuppytest
+  .*\python.exe: No module named setuppytest (re)
+  [1]
+
+  $ cd setuppytest
 
 Install from the sdist and test
 
-    $ pip install dist/setuppytest-0.1.tar.gz
-    Unpacking .\dist\setuppytest-0.1.tar.gz
-      Running setup.py egg_info for package from file:///q%7C%5Ccurrent%5Ctmp%5Ctpip%5Csetuppytest%5Csetuppytest%5Cdist%5Csetuppytest-0.1.tar.gz
-    Installing collected packages: setuppytest
-      Running setup.py install for setuppytest
-    Successfully installed setuppytest
-    Cleaning up...
+  $ pip install dist/setuppytest-0.1.tar.gz
+  Unpacking .\dist\setuppytest-0.1.tar.gz
+    Running setup.py egg_info for package from file:\/\/.*dist%5Csetuppytest-0.1.tar.gz (re)
+  Installing collected packages: setuppytest
+    Running setup.py install for setuppytest
+  Successfully installed setuppytest
+  Cleaning up...
 
 Test the installation
 
-    $ pip list | grep setuppytest
-    setuppytest (0.1)
-    $ cd ..  # Don't import setuppytest.py from cwd
-    $ python -m setuppytest
-    setuppytest.py
-    getcwd(): "q:\current\tmp\tpip\setuppytest"
-    __file__: "q:\tools\Python27\lib\site-packages\setuppytest.py"
-    __name__: "__main__"
+  $ pip list | grep setuppytest
+  setuppytest (0.1)
+
+  $ cd ..  # Don''t import setuppytest.py from cwd
+
+  $ python -m setuppytest
+  setuppytest.py
+  getcwd\(\): ".*\\setuppytest" (re)
+  __file__: ".*\\site-packages\\setuppytest.py" (re)
+  __name__: "__main__"
 
 Test uninstallation
 
-    $ pip uninstall setuppytest
-    Uninstalling setuppytest:
-      q:\tools\python27\lib\site-packages\setuppytest-0.1-py2.7.egg-info
-      q:\tools\python27\lib\site-packages\setuppytest.py
-    Proceed (y/n)? y
-      Successfully uninstalled setuppytest
-    $ pip list | grep setuppytest
-    $ python -m setuppytest
-    q:\tools\Python27\python.exe: No module named setuppytest
+  $ pip uninstall -y setuppytest
+  Uninstalling setuppytest:
+    Successfully uninstalled setuppytest
+
+  $ pip list | grep setuppytest
+  [1]
+
+  $ python -m setuppytest
+  .*\python.exe: No module named setuppytest (re)
+  [1]
 
 testing 'pip wheel X'
 ---------------------
 
 Build a wheel
 
-    $ cd setuppytest  # Back to the VCS root
-    $ pip wheel dist/setuppytest-0.1.tar.gz
-    Unpacking .\dist\setuppytest-0.1.tar.gz
-      Running setup.py egg_info for package from file:///q%7C%5Ccurrent%5Csrc%5Csetuppytest%5Csetuppytest%5Cdist%5Csetuppytest-0.1.tar.gz
-    Building wheels for collected packages: setuppytest
-      Running setup.py bdist_wheel for setuppytest
-      Destination directory: q:\current\src\setuppytest\setuppytest\wheelhouse
-    Successfully built setuppytest
-    Cleaning up...
-    $ pip install wheelhouse/setuppytest-0.1-py27-none-any-none-any.whl
-    Unpacking .\wheelhouse\setuppytest-0.1-py27-none-any-none-any.whl
-    Installing collected packages: setuppytest
-    Successfully installed setuppytest
-    Cleaning up...
+  $ cd setuppytest  # Back to the VCS root
+  $ pip wheel dist/setuppytest-0.1.tar.gz
+  Unpacking .\dist\setuppytest-0.1.tar.gz
+    Running setup.py egg_info for package from file:\/\/\/.*setuppytest-0.1.tar.gz (re)
+  Building wheels for collected packages: setuppytest
+    Running setup.py bdist_wheel for setuppytest
+    Destination directory: .*\\setuppytest\\setuppytest\\wheelhouse (re)
+  Successfully built setuppytest
+  Cleaning up...
 
-Test the wheel
+Install from the wheel.
 
-    $ pip list | grep setuppytest
-    setuppytest (0.1)
-    $ cd ..
-    $ python -m setuppytest
-    setuppytest.py
-    getcwd(): "q:\current\src\setuppytest"
-    __file__: "q:\tools\Python27\lib\site-packages\setuppytest.py"
-    __name__: "__main__"
+  $ pip install wheelhouse/setuppytest-0.1-py27-none-any-none-any.whl
+  Unpacking .\wheelhouse\setuppytest-0.1-py27-none-any-none-any.whl
+  Installing collected packages: setuppytest
+  Successfully installed setuppytest
+  Cleaning up...
+
+Test the installation.
+
+  $ pip list | grep setuppytest
+  setuppytest (0.1)
+  $ cd ..
+  $ python -m setuppytest
+  setuppytest.py
+  getcwd\(\): ".*\\setuppytest" (re)
+  __file__: ".*\\site-packages\\setuppytest.py" (re)
+  __name__: "__main__"
 
 And uninstall again
 
-    $ pip uninstall setuppytest
-    Uninstalling setuppytest:
-      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\description.rst
-      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\metadata
-      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\pydist.json
-      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\record
-      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\top_level.txt
-      q:\tools\python27\lib\site-packages\setuppytest-0.1.dist-info\wheel
-      q:\tools\python27\lib\site-packages\setuppytest.py
-    Proceed (y/n)? y
-      Successfully uninstalled setuppytest
-    $ pip list | grep setuppytest
-    $ cd ..
-    $ python -m setuppytest
-    q:\tools\Python27\python.exe: No module named setuppytest
+  $ pip uninstall -y setuppytest
+  Uninstalling setuppytest:
+    Successfully uninstalled setuppytest
+  $ pip list | grep setuppytest
+  [1]
+
+  $ python -m setuppytest
+  .*\python.exe: No module named setuppytest (re)
+  [1]
+
+  $ cd setuppytest
 
 testing easy-install X
 ----------------------
 
 Install
 
-    $ easy_install dist/setuppytest-0.1.tar.gz
-    Processing setuppytest-0.1.tar.gz
-    Writing c:\docume~1\enojb\locals~1\temp\easy_install-70dzos\setuppytest-0.1\setup.cfg
-    Running setuppytest-0.1\setup.py -q bdist_egg --dist-dir c:\docume~1\enojb\locals~1\temp\easy_install-70dzos\setuppytest-0.1\egg-dist-tmp-cuvaab
-    creating q:\tools\python27\lib\site-packages\setuppytest-0.1-py2.7.egg
-    Extracting setuppytest-0.1-py2.7.egg to q:\tools\python27\lib\site-packages
-    Adding setuppytest 0.1 to easy-install.pth file
-
-    Installed q:\tools\python27\lib\site-packages\setuppytest-0.1-py2.7.egg
-    Processing dependencies for setuppytest==0.1
-    Finished processing dependencies for setuppytest==0.1
+  $ easy_install dist/setuppytest-0.1.tar.gz
+  Processing setuppytest-0.1.tar.gz
+  Writing .*setuppytest-0.1\\setup.cfg (re)
+  Running setuppytest-0.1\\setup.py -q bdist_egg --dist-dir .*setuppytest-0.1.* (re)
+  running bdist_egg
+  creating .*site-packages\\setuppytest-0.1-py2.7.egg (re)
+  Extracting setuppytest-0.1-py2.7.egg to .*site-packages (re)
+  Adding setuppytest 0.1 to easy-install.pth file
+  
+  Installed .*setuppytest-0.1-py2.7.egg (re)
+  Processing dependencies for setuppytest==0.1
+  Finished processing dependencies for setuppytest==0.1
 
 Test
 
-    $ cd ..
-    $ python -m setuppytest
-    setuppytest.py
-    getcwd(): "q:\current\src\setuppytest"
-    __file__: "q:\tools\Python27\lib\site-packages\setuppytest-0.1-py2.7.egg\setuppytest.py"
-    __name__: "__main__"
+  $ cd ..
+  $ python -m setuppytest
+  setuppytest.py
+  getcwd\(\): ".*\\setuppytest" (re)
+  __file__: ".*\\site-packages\\setuppytest-0.1-py2.7.egg\\setuppytest.py" (re)
+  __name__: "__main__"
 
 Uninstall again.
 
-    $ pip uninstall setuppytest
-    Uninstalling setuppytest:
-      q:\tools\python27\lib\site-packages\setuppytest-0.1-py2.7.egg
-    Proceed (y/n)? y
-      Successfully uninstalled setuppytest
-    $ python -m setuppytest
-    q:\tools\Python27\python.exe: No module named setuppytest
+  $ pip uninstall -y setuppytest
+  Uninstalling setuppytest:
+    Successfully uninstalled setuppytest
+  $ python -m setuppytest
+  .*\python.exe: No module named setuppytest (re)
+  [1]
+
+And that''s all...
